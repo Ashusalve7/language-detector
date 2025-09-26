@@ -1,88 +1,77 @@
 import re
-import os
 from PIL import Image
 import pytesseract
 import PyPDF2
 import docx
+from io import BytesIO
 
 class LanguageIdentifier:
     def __init__(self):
         self.malayalam_pattern = re.compile(r'[\u0d00-\u0d7f]+')
         self.english_pattern = re.compile(r'[a-zA-Z\s.,!?;:"\'()\-]+')
         
-    def extract_text_from_image(self, image_path):
+    def extract_text_from_image(self, image_bytes):
         try:
-            image = Image.open(image_path)
+            image = Image.open(BytesIO(image_bytes))
             text = pytesseract.image_to_string(image, lang='eng+mal')
             return text.strip()
-        except Exception as e:
+        except Exception:
             return ""
     
-    def extract_text_from_pdf(self, pdf_path):
+    def extract_text_from_pdf(self, pdf_bytes):
         try:
-            with open(pdf_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                text = ""
-                for page in pdf_reader.pages:
-                    text += page.extract_text()
-            return text.strip()
-        except:
-            return ""
-    
-    def extract_text_from_docx(self, docx_path):
-        try:
-            doc = docx.Document(docx_path)
+            reader = PyPDF2.PdfReader(BytesIO(pdf_bytes))
             text = ""
-            for paragraph in doc.paragraphs:
-                text += paragraph.text + "\n"
+            for page in reader.pages:
+                text += page.extract_text() or ""
             return text.strip()
         except:
             return ""
     
-    def extract_text_from_txt(self, txt_path):
+    def extract_text_from_docx(self, docx_bytes):
         try:
-            with open(txt_path, 'r', encoding='utf-8') as file:
-                return file.read().strip()
+            document = docx.Document(BytesIO(docx_bytes))
+            text = "\n".join([p.text for p in document.paragraphs])
+            return text.strip()
+        except:
+            return ""
+    
+    def extract_text_from_txt(self, txt_bytes):
+        try:
+            return txt_bytes.decode("utf-8").strip()
         except:
             return ""
     
     def identify_language(self, text):
         if not text or len(text.strip()) < 3:
-            return {"language": "unknown","confidence": 0.0,"reason": "Text too short or empty"}
+            return {"language": "unknown", "confidence": 0.0, "reason": "Text too short or empty"}
         
-        text = text.strip()
         malayalam_matches = self.malayalam_pattern.findall(text)
-        malayalam_chars = sum(len(match) for match in malayalam_matches)
-        malayalam_ratio = malayalam_chars / len(text) if len(text) > 0 else 0
+        malayalam_ratio = sum(len(m) for m in malayalam_matches) / len(text)
         english_matches = self.english_pattern.findall(text)
-        english_chars = sum(len(match) for match in english_matches)
-        english_ratio = english_chars / len(text) if len(text) > 0 else 0
+        english_ratio = sum(len(m) for m in english_matches) / len(text)
         
         if malayalam_ratio > 0.05:
-            confidence = min(malayalam_ratio * 3, 1.0)
-            return {"language": "malayalam","confidence": round(confidence, 2),"reason": f"Malayalam characters found: {malayalam_ratio:.1%}"}
+            return {"language": "malayalam", "confidence": round(min(malayalam_ratio * 3, 1.0), 2),
+                    "reason": f"Malayalam characters found: {malayalam_ratio:.1%}"}
         elif english_ratio > 0.3:
-            confidence = min(english_ratio, 1.0)
-            return {"language": "english","confidence": round(confidence, 2),"reason": f"English characters found: {english_ratio:.1%}"}
+            return {"language": "english", "confidence": round(min(english_ratio, 1.0), 2),
+                    "reason": f"English characters found: {english_ratio:.1%}"}
         else:
-            return {"language": "unknown","confidence": 0.0,"reason": "Unable to determine language"}
+            return {"language": "unknown", "confidence": 0.0, "reason": "Unable to determine language"}
     
-    def process_file(self, file_path):
-        try:
-            ext = file_path.split('.')[-1].lower()
-            if ext in ['jpg','jpeg','png','bmp','tiff']:
-                text = self.extract_text_from_image(file_path)
-            elif ext == 'pdf':
-                text = self.extract_text_from_pdf(file_path)
-            elif ext == 'docx':
-                text = self.extract_text_from_docx(file_path)
-            elif ext == 'txt':
-                text = self.extract_text_from_txt(file_path)
-            else:
-                return {"error": "Unsupported file type","supported_types": ["jpg, png, pdf, docx, txt"]}
-            
-            result = self.identify_language(text)
-            result["file_type"] = ext
-            return result
-        except Exception as e:
-            return {"error": str(e),"language": "unknown","confidence": 0.0}
+    def process_file(self, file_bytes, ext):
+        if ext in ["jpg", "jpeg", "png", "bmp", "tiff"]:
+            text = self.extract_text_from_image(file_bytes)
+        elif ext == "pdf":
+            text = self.extract_text_from_pdf(file_bytes)
+        elif ext == "docx":
+            text = self.extract_text_from_docx(file_bytes)
+        elif ext == "txt":
+            text = self.extract_text_from_txt(file_bytes)
+        else:
+            return {"error": "Unsupported file type", "supported_types": ["jpg", "png", "pdf", "docx", "txt"]}
+        
+        result = self.identify_language(text)
+        result["file_type"] = ext
+        return result
