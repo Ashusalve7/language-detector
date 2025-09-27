@@ -1,6 +1,3 @@
-# Install required packages
-!pip install pytesseract pillow PyPDF2 python-docx transformers torch sentencepiece PyMuPDF googletrans==4.0.0-rc1
-
 # Import libraries
 import re
 import os
@@ -9,9 +6,11 @@ import pytesseract
 import PyPDF2
 import docx
 import fitz
-import io
+from io import BytesIO # Changed from 'io' to 'BytesIO' for consistency, though 'io' is fine
 from transformers import pipeline
-from googletrans import Translator
+from deep_translator import GoogleTranslator  # <-- UPDATED TRANSLATOR IMPORT
+
+# NOTE: Removed "!pip install..." and "from google.colab import files" as they are not needed on Railway/Render
 
 class LanguageIdentifier:
     def __init__(self):
@@ -49,7 +48,8 @@ class LanguageIdentifier:
                         page = doc.load_page(page_num)
                         pix = page.get_pixmap()
                         img_data = pix.tobytes("png")
-                        image = Image.open(io.BytesIO(img_data))
+                        # Use io.BytesIO for compatibility
+                        image = Image.open(BytesIO(img_data))
                         text += pytesseract.image_to_string(image, lang='eng+mal') + "\n"
             
             return text.strip()
@@ -126,6 +126,7 @@ class LanguageIdentifier:
         file_extension = file_path.split('.')[-1].lower()
 
         if file_extension in ['jpg', 'jpeg', 'png', 'bmp', 'tiff']:
+            # For file path methods, we assume the file can be opened directly
             return self.extract_text_from_image(file_path)
         elif file_extension == 'pdf':
             return self.extract_text_from_pdf(file_path)
@@ -138,14 +139,16 @@ class LanguageIdentifier:
 
 class Translator:
     def __init__(self):
-        self.translator = Translator()
+        # Initializing deep_translator is not strictly necessary but kept for structure compatibility
+        pass
     
     def translate_malayalam_to_english(self, text):
         """Translate Malayalam text to English"""
         try:
             print("🔄 Translating Malayalam text to English...")
-            result = self.translator.translate(text, src='ml', dest='en')
-            return result.text
+            # Use deep_translator's GoogleTranslator
+            translated_text = GoogleTranslator(source='ml', target='en').translate(text)
+            return translated_text
         except Exception as e:
             print(f"Translation error: {e}")
             return text  # Return original text if translation fails
@@ -379,60 +382,13 @@ class IntegratedDocumentProcessor:
 # Initialize the integrated processor
 processor = IntegratedDocumentProcessor()
 
-def run_integrated_app():
-    """Main application function"""
-    print("\n" + "="*50)
-    print("🚀 INTEGRATED DOCUMENT PROCESSOR")
-    print("="*50)
-    print("Features:")
-    print("• Language Detection (English/Malayalam)")
-    print("• Automatic Translation (Malayalam → English)")
-    print("• Smart Document Classification")
-    print("• Structured Data Extraction")
-    print("• Intelligent Summarization")
-    print("\nSupported files: .txt, .pdf, .docx, .png, .jpg, .jpeg")
-    print("="*50)
-    
-    # Upload file
-    print("\n📤 Please upload your document:")
-    uploaded_files = files.upload()
-    
-    if not uploaded_files:
-        print("❌ No file uploaded. Operation cancelled.")
-        return
-    
-    # Process each uploaded file
-    for filename, content in uploaded_files.items():
-        print(f"\n🎯 Processing: {filename}")
-        
-        # Save the uploaded file temporarily
-        with open(filename, 'wb') as f:
-            f.write(content)
-        
-        try:
-            # Process the file through the integrated pipeline
-            result = processor.process_file(filename)
-            
-            # Display results
-            print("\n" + "="*60)
-            print("✅ FINAL RESULTS")
-            print("="*60)
-            print(result)
-            print("="*60)
-            
-        except Exception as e:
-            print(f"❌ Error processing file: {e}")
-        
-        finally:
-            # Clean up temporary file
-            if os.path.exists(filename):
-                os.remove(filename)
-
-# Run the integrated application
-if __name__ == "__main__":
-    run_integrated_app()
+# Removed run_integrated_app and its dependency on google.colab.files as it is for local script use.
 
 # For programmatic use
 def process_document(file_path):
     """Function for direct use in other scripts"""
     return processor.process_file(file_path)
+
+# Run the integrated application - removed this block as it is for Colab/local scripting
+# if __name__ == "__main__":
+#     run_integrated_app()

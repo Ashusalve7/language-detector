@@ -1,6 +1,3 @@
-# FastAPI Integrated Document Processor
-# Install: pip install fastapi uvicorn pytesseract pillow PyPDF2 python-docx transformers torch sentencepiece PyMuPDF googletrans==4.0.0-rc1
-
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +11,7 @@ import docx
 import fitz
 from io import BytesIO
 from transformers import pipeline
-from googletrans import Translator
+from deep_translator import GoogleTranslator  # <-- UPDATED TRANSLATOR IMPORT
 import tempfile
 import os
 
@@ -105,13 +102,15 @@ class LanguageIdentifier:
 
 class MalayalamTranslator:
     def __init__(self):
-        self.translator = Translator()
+        # Initializing deep_translator is not strictly necessary but kept for structure compatibility
+        pass
     
     def translate_malayalam_to_english(self, text):
         try:
             print("🔄 Translating Malayalam text to English...")
-            result = self.translator.translate(text, src='ml', dest='en')
-            return result.text
+            # Use deep_translator's GoogleTranslator
+            translated_text = GoogleTranslator(source='ml', target='en').translate(text)
+            return translated_text
         except Exception as e:
             print(f"Translation error: {e}")
             return text
@@ -120,6 +119,7 @@ class DocumentSummarizer:
     def __init__(self):
         print("Loading summarization model...")
         try:
+            # Note: This model loading is slow, hence the Procfile/setup.py change is needed.
             self.summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
             print("✅ Summarization model loaded successfully!")
         except Exception as e:
@@ -616,7 +616,7 @@ if __name__ == "__main__":
     import uvicorn
     print("🚀 Starting n8n-Compatible Document Processor API...")
     print("📋 n8n Integration endpoints:")
-    print("   • POST /process/simple - Simplified processing")
-    print("   • POST /process/webhook - Webhook-friendly") 
-    print("   • GET /n8n/info - Integration information")
+    print("    • POST /process/simple - Simplified processing")
+    print("    • POST /process/webhook - Webhook-friendly") 
+    print("    • GET /n8n/info - Integration information")
     uvicorn.run(app, host="0.0.0.0", port=8000)
