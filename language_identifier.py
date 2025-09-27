@@ -9,7 +9,6 @@ import pytesseract
 import PyPDF2
 import docx
 import fitz
-from google.colab import files
 import io
 from transformers import pipeline
 from googletrans import Translator
